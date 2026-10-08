@@ -319,7 +319,15 @@ const mq=matchMedia('(orientation: portrait)');
 function setRot(){ROT=mq.matches;}
 if(mq.addEventListener)mq.addEventListener('change',setRot);else mq.addListener(setRot);
 setRot();
+/* экранный вектор → вектор в координатах приложения (с учётом поворота) */
 function localDelta(sx,sy){return ROT?{x:sy,y:-sx}:{x:sx,y:sy};}
+/* точка на экране → локальные координаты элемента (работает и при повороте сцены) */
+function elPoint(cv,e){
+  const r=cv.getBoundingClientRect();
+  if(ROT)return {x:e.clientY-r.top, y:r.right-e.clientX};
+  return {x:e.clientX-r.left, y:e.clientY-r.top};
+}
+function capture(el,id){try{el.setPointerCapture(id);}catch(err){}}
 
 /* ═══════════════ СОСТОЯНИЕ ═══════════════ */
 const PACK_FILES=['kick.wav','snare.wav','clap.wav','hat-c.wav','hat-o.wav','tom.wav','rim.wav','crash.wav'];
@@ -708,15 +716,16 @@ const bpmStrip=$('#bpmStrip'),bpmCv=$('#bpmCv'),bctx=bpmCv.getContext('2d');
 let bpmDrag=null,bpmTap=0;
 bpmStrip.addEventListener('pointerdown',e=>{
   e.preventDefault();
-  bpmStrip.setPointerCapture(e.pointerId);
+  capture(bpmStrip,e.pointerId);
   const now=performance.now();
   if(now-bpmTap<300){bpmTap=0;applyBpm(120);toast('Темп: 120 BPM');bpmDrag=null;return;}
   bpmTap=now;
-  bpmDrag={x:e.offsetX,bpm:bpm};
+  bpmDrag={x:e.clientX,y:e.clientY,bpm:bpm};
 });
 bpmStrip.addEventListener('pointermove',e=>{
   if(!bpmDrag)return;
-  applyBpm(bpmDrag.bpm+(e.offsetX-bpmDrag.x)*.4);
+  const d=localDelta(e.clientX-bpmDrag.x,e.clientY-bpmDrag.y);
+  applyBpm(bpmDrag.bpm+d.x*.4);
 });
 ['pointerup','pointercancel'].forEach(ev=>bpmStrip.addEventListener(ev,()=>{if(bpmDrag){bpmDrag=null;save();}}));
 function drawBpm(){
@@ -746,15 +755,16 @@ const fltStrip=$('#fltStrip'),fltCv=$('#fltCv'),ftx=fltCv.getContext('2d');
 let fltDrag=null,fltTap=0;
 fltStrip.addEventListener('pointerdown',e=>{
   e.preventDefault();
-  fltStrip.setPointerCapture(e.pointerId);
+  capture(fltStrip,e.pointerId);
   const now=performance.now();
   if(now-fltTap<300){fltTap=0;setFilter(0);toast('Фильтр: открыт');fltDrag=null;return;}
   fltTap=now;
-  fltDrag={x:e.offsetX,r:filtR,w:fltStrip.clientWidth};
+  fltDrag={x:e.clientX,y:e.clientY,r:filtR,w:fltStrip.clientWidth};
 });
 fltStrip.addEventListener('pointermove',e=>{
   if(!fltDrag)return;
-  setFilter(fltDrag.r-(e.offsetX-fltDrag.x)/fltDrag.w,true);
+  const d=localDelta(e.clientX-fltDrag.x,e.clientY-fltDrag.y);
+  setFilter(fltDrag.r-d.x/fltDrag.w,true);
 });
 ['pointerup','pointercancel'].forEach(ev=>fltStrip.addEventListener(ev,()=>{if(fltDrag){fltDrag=null;save();}}));
 function drawFlt(){
@@ -840,13 +850,11 @@ function transpose(d){
   save();updRollHead();
 }
 function cellAt(e){
-  // offsetX/offsetY уже в локальных координатах холста —
-  // корректно и при повёрнутом интерфейсе
+  const pnt=elPoint(rollCv,e);                  // локальные координаты холста
   const sl=rollScroll.scrollLeft,st=rollScroll.scrollTop;
-  const x=e.offsetX,y=e.offsetY;
-  if(x<sl+GUT||y<st+RULE)return null;           // попали в закреплённые линейки
-  const s=Math.floor((x-GUT)/STEPW);
-  const row=Math.floor((y-RULE)/ROWH);
+  if(pnt.x<sl+GUT||pnt.y<st+RULE)return null;   // попали в закреплённые линейки
+  const s=Math.floor((pnt.x-GUT)/STEPW);
+  const row=Math.floor((pnt.y-RULE)/ROWH);
   if(s<0||s>=steps()||row<0||row>=ROWS)return null;
   return {s:s,semi:12-row};
 }
@@ -857,7 +865,7 @@ function applyCell(c,mode){
 let rT=null;
 rollCv.addEventListener('pointerdown',e=>{
   e.preventDefault();
-  rollCv.setPointerCapture(e.pointerId);
+  capture(rollCv,e.pointerId);
   if(rollMode==='pan'){
     rT={pan:true,x:e.clientX,y:e.clientY,sl:rollScroll.scrollLeft,st:rollScroll.scrollTop};
     rollCv.style.cursor='grabbing';
