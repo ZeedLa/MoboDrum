@@ -2,6 +2,9 @@
 <!--
   РИТМ‑8 · драм‑машина (один файл, мобильный ландшафт)
   ─────────────────────────────────────────────────────────
+  Интерфейс всегда альбомный: в портрете приложение само
+  поворачивается на 90° — ничего нажимать не нужно.
+
   ДЛЯ GITHUB PAGES — два способа подключить свой пак:
 
   1) Просто файлы в папке pack/ рядом с этим файлом:
@@ -24,16 +27,17 @@
      Порядок в массиве = номер пада (или явно "pad": 0..7).
      Если файла нет — пад остаётся на встроенном синтезе.
 
-  LIVE-РЕЖИМ:
-    ▶ — включить транспорт → ● REC — играй на падах (удары сами
-    встают по сетке) → ● REC снова — луп уходит играть фоном,
-    можно писать следующий поверх. ↩ — удалить последний луп,
+  LIVE‑РЕЖИМ:
+    ▶ — транспорт → ● REC — играй на падах (удары сами встают
+    по сетке) → ● REC снова — луп уходит играть фоном, можно
+    писать следующий поверх. ↩ — удалить последний луп,
     ✕ — удалить все. Лупы живут до перезагрузки страницы.
 
   Управление:
     тап по паду — удар · кнопка «столбики» на паду — пиано‑ролл
     в пиано‑ролле: ✎ — тап/слайд ставит ноты, ✋ — прокрутка
-    нижняя полоса: слайд ↔ темп · слайд ↕ фильтр · двойной тап — сброс
+    полоса ТЕМП — слайд меняет BPM (двойной тап = 120)
+    полоса ФИЛЬТР — слайд открывает/закрывает LP (двойной тап = открыт)
     клавиатура: 1‑8 пады, пробел — плей/стоп, Esc — закрыть окна
 -->
 <html lang="ru">
@@ -50,6 +54,8 @@
 :root{
   --bg:#0e1319; --panel:#161d27; --panel2:#121926; --line:#2b3546;
   --ink:#eef2f7; --dim:#8b98a9; --amber:#ffc63d; --hot:#ff8a3d; --rec:#ff5b4d;
+  --sat:env(safe-area-inset-top); --sar:env(safe-area-inset-right);
+  --sab:env(safe-area-inset-bottom); --sal:env(safe-area-inset-left);
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{position:fixed;inset:0;overflow:hidden;overscroll-behavior:none}
@@ -70,10 +76,21 @@ body{
 #pulse{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:0;transition:opacity .28s ease-out;
   background:radial-gradient(700px 340px at 50% 118%, rgba(255,138,61,.22), transparent 70%);}
 #pulse.on{opacity:1;transition:none}
-#app.rec-on{--padline:rgba(255,91,77,.5)}
 
-#app{position:relative;z-index:1;display:flex;flex-direction:column;height:100dvh;gap:8px;
-  padding:calc(8px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));}
+/* ── сцена: в портрете принудительно поворачивается в ландшафт ── */
+#stage{position:fixed;top:0;left:0;width:100vw;width:100dvw;height:100vh;height:100dvh;z-index:1}
+@media (orientation: portrait){
+  :root{--sat:0px;--sar:0px;--sab:0px;--sal:0px}
+  #stage{
+    left:100vw;top:0;
+    width:100vh;width:100dvh;
+    height:100vw;height:100dvw;
+    transform-origin:0 0;
+    transform:rotate(90deg);
+  }
+}
+#app{position:relative;display:flex;flex-direction:column;height:100%;gap:8px;
+  padding:calc(8px + var(--sat)) calc(10px + var(--sar)) calc(8px + var(--sab)) calc(10px + var(--sal));}
 
 /* ── верхняя панель ── */
 #top{display:flex;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:none;
@@ -150,24 +167,23 @@ body{
 .leds i.note{background:color-mix(in oklab, var(--c) 55%, transparent)}
 .leds i.now{background:#fff;box-shadow:0 0 9px var(--c)}
 
-/* ── FX‑полоса ── */
-#strip{position:relative;height:62px;flex:none;border-radius:12px;overflow:hidden;cursor:ew-resize;touch-action:none;
+/* ── две полосы: ТЕМП и ФИЛЬТР ── */
+#ctrls{display:flex;gap:8px;height:64px;flex:none}
+.ctrl{position:relative;flex:1;min-width:0;border-radius:12px;overflow:hidden;cursor:ew-resize;touch-action:none;
   background:linear-gradient(180deg,#151c26,#0f151e);border:1px solid var(--line);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.06), inset 0 -12px 24px rgba(0,0,0,.4);}
-#stripCv{position:absolute;inset:0;width:100%;height:100%}
-#stripInfo{position:absolute;top:7px;right:12px;text-align:right;pointer-events:none;
-  font:700 12px/1.35 'JetBrains Mono';color:var(--amber);text-shadow:0 0 10px rgba(255,198,61,.4)}
-#stripInfo span{display:block;font-size:9px;color:#9fb0c4;text-shadow:none}
-#stripHint{position:absolute;left:12px;bottom:6px;pointer-events:none;
-  font:500 8.5px 'JetBrains Mono';letter-spacing:.16em;color:var(--dim);transition:opacity .8s}
-#stripWm{position:absolute;left:12px;top:6px;font:900 11px Unbounded;letter-spacing:.3em;
-  color:rgba(255,255,255,.07);pointer-events:none}
+.ctrl canvas{position:absolute;inset:0;width:100%;height:100%}
+.ctrl .lab{position:absolute;left:10px;top:6px;font:900 9px Unbounded;letter-spacing:.3em;
+  color:rgba(255,255,255,.35);pointer-events:none}
+.ctrl .val{position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;
+  font:700 16px/1 'JetBrains Mono';color:var(--amber);text-shadow:0 0 12px rgba(255,198,61,.4)}
+#fltStrip .val{font-size:13px}
 
 /* ── пиано‑ролл ── */
 #roll{position:fixed;inset:0;z-index:40;display:none;flex-direction:column;background:#0d1219}
 #roll.open{display:flex}
 .roll-head{flex:none;display:flex;align-items:center;gap:7px;flex-wrap:wrap;row-gap:4px;
-  padding:calc(6px + env(safe-area-inset-top)) 10px 6px;background:var(--panel2);border-bottom:1px solid var(--line)}
+  padding:calc(6px + var(--sat)) 10px 6px;background:var(--panel2);border-bottom:1px solid var(--line)}
 .roll-head .chip{display:flex;align-items:center;gap:7px;font-family:Unbounded;font-weight:700;font-size:14px}
 .roll-head .chip i{width:12px;height:12px;border-radius:3px;background:var(--c);box-shadow:0 0 10px var(--c)}
 .roll-head .cnt{font:500 10px 'JetBrains Mono';color:var(--dim);letter-spacing:.1em}
@@ -179,7 +195,7 @@ body{
 #pack{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;
   background:rgba(5,8,12,.72);backdrop-filter:blur(3px)}
 #pack.open{display:flex}
-.pack-box{width:min(580px,94vw);max-height:86dvh;overflow:auto;background:#151c27;
+.pack-box{width:min(580px,94vw);max-height:86%;overflow:auto;background:#151c27;
   border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 24px 60px rgba(0,0,0,.6)}
 .pack-box h3{font-family:Unbounded;font-size:15px;margin-bottom:2px}
 .pack-box .sub{font:500 9px 'JetBrains Mono';letter-spacing:.12em;color:var(--dim);margin-bottom:10px}
@@ -203,90 +219,88 @@ body{
 #packStatus{font:500 9px 'JetBrains Mono';letter-spacing:.1em;color:var(--dim);margin-top:10px;line-height:1.6}
 
 /* ── прочее ── */
-#toast{position:fixed;left:50%;bottom:80px;transform:translate(-50%,16px);z-index:60;opacity:0;pointer-events:none;
+#toast{position:fixed;left:50%;bottom:84px;transform:translate(-50%,16px);z-index:60;opacity:0;pointer-events:none;
   background:#1c2532;border:1px solid #3a4658;border-radius:10px;padding:8px 14px;
   font:700 11px 'JetBrains Mono';letter-spacing:.06em;color:var(--ink);
-  box-shadow:0 10px 30px rgba(0,0,0,.5);transition:.3s;max-width:86vw;text-align:center}
+  box-shadow:0 10px 30px rgba(0,0,0,.5);transition:.3s;max-width:86%;text-align:center}
 #toast.show{opacity:1;transform:translate(-50%,0)}
-#turn{position:fixed;inset:0;z-index:99;display:none;flex-direction:column;align-items:center;
-  justify-content:center;gap:22px;background:#0c1117;text-align:center;padding:20px}
-#turn .ph{width:52px;height:92px;border:3px solid var(--amber);border-radius:12px;
-  animation:rot 1.8s ease-in-out infinite;box-shadow:0 0 24px rgba(255,198,61,.25)}
-#turn b{font-family:Unbounded;font-weight:700;font-size:17px}
-#turn span{font:500 10px 'JetBrains Mono';letter-spacing:.22em;color:var(--dim)}
-@keyframes rot{0%,18%{transform:rotate(0)}62%,100%{transform:rotate(90deg)}}
-@media (orientation:portrait){#turn{display:flex}}
-@media (max-width:740px){.brand small{display:none}}
 </style>
 </head>
 <body>
 <div id="grid-bg"></div><div id="noise"></div><div id="pulse"></div>
 
-<div id="app">
-  <header id="top">
-    <div class="brand"><span class="dot" id="beatDot"></span><div><b>РИТМ‑8</b><small>DRUM COMPUTER · LIVE LOOP</small></div></div>
-    <div class="spacer"></div>
-    <button class="key" id="play" aria-label="Пуск"></button>
-    <div class="bpmbox"><label>ТЕМП</label><b id="bpmVal">120</b><i>BPM</i></div>
-    <div class="swingbox"><label>СВИНГ</label>
-      <div class="srow"><input type="range" id="swingIn" min="0" max="60" value="0"><b id="swingVal">0%</b></div>
+<div id="stage">
+  <div id="app">
+    <header id="top">
+      <div class="brand"><span class="dot" id="beatDot"></span><div><b>РИТМ‑8</b><small>DRUM COMPUTER · LIVE LOOP</small></div></div>
+      <div class="spacer"></div>
+      <button class="key" id="play" aria-label="Пуск"></button>
+      <div class="bpmbox"><label>ТЕМП</label><b id="bpmVal">120</b><i>BPM</i></div>
+      <div class="swingbox"><label>СВИНГ</label>
+        <div class="srow"><input type="range" id="swingIn" min="0" max="60" value="0"><b id="swingVal">0%</b></div>
+      </div>
+      <div class="seg"><span class="lbl">ТАКТЫ</span><span id="barsSeg"></span></div>
+      <div class="recgrp">
+        <button class="key rec" id="rec"><i></i>REC</button>
+        <span id="loopCnt">×0</span>
+        <button class="key" id="undo" aria-label="Убрать последний луп">↩</button>
+        <button class="key" id="clearL" aria-label="Убрать все лупы">✕</button>
+      </div>
+      <button class="key" id="packBtn">🎛 ПАК</button>
+    </header>
+
+    <div id="pads"></div>
+
+    <div id="ctrls">
+      <div class="ctrl" id="bpmStrip">
+        <canvas id="bpmCv"></canvas>
+        <div class="lab">ТЕМП</div>
+        <div class="val" id="bpmBig">120 BPM</div>
+      </div>
+      <div class="ctrl" id="fltStrip">
+        <canvas id="fltCv"></canvas>
+        <div class="lab">ФИЛЬТР</div>
+        <div class="val" id="fltBig">ОТКРЫТ</div>
+      </div>
     </div>
-    <div class="seg"><span class="lbl">ТАКТЫ</span><span id="barsSeg"></span></div>
-    <div class="recgrp">
-      <button class="key rec" id="rec"><i></i>REC</button>
-      <span id="loopCnt">×0</span>
-      <button class="key" id="undo" aria-label="Убрать последний луп">↩</button>
-      <button class="key" id="clearL" aria-label="Убрать все лупы">✕</button>
+  </div>
+
+  <!-- пиано-ролл -->
+  <div id="roll">
+    <div class="roll-head">
+      <button class="key" id="rollBack">← НАЗАД</button>
+      <div class="chip" id="rollChip"><i></i><span id="rollName"></span></div>
+      <button class="key" id="rollDn">ТОН −</button>
+      <button class="key" id="rollUp">ТОН +</button>
+      <button class="key" id="rollClear">ОЧИСТИТЬ</button>
+      <button class="key lit" id="modeDraw">✎ НОТЫ</button>
+      <button class="key" id="modePan">✋ РУКА</button>
+      <span class="cnt" id="rollCnt"></span>
     </div>
-    <button class="key" id="packBtn">🎛 ПАК</button>
-  </header>
-
-  <div id="pads"></div>
-
-  <div id="strip">
-    <canvas id="stripCv"></canvas>
-    <div id="stripWm">РИТМ‑8</div>
-    <div id="stripInfo"><span id="siBpm">120 BPM</span><span id="siFlt">FILTER: ОТКРЫТ</span></div>
-    <div id="stripHint">СЛАЙД ↔ ТЕМП · СЛАЙД ↕ ФИЛЬТР · ДВОЙНОЙ ТАП — СБРОС</div>
+    <div class="roll-scroll" id="rollScroll"><canvas id="rollCv"></canvas></div>
   </div>
-</div>
 
-<!-- пиано-ролл -->
-<div id="roll">
-  <div class="roll-head">
-    <button class="key" id="rollBack">← НАЗАД</button>
-    <div class="chip" id="rollChip"><i></i><span id="rollName"></span></div>
-    <button class="key" id="rollDn">ТОН −</button>
-    <button class="key" id="rollUp">ТОН +</button>
-    <button class="key" id="rollClear">ОЧИСТИТЬ</button>
-    <button class="key lit" id="modeDraw">✎ НОТЫ</button>
-    <button class="key" id="modePan">✋ РУКА</button>
-    <span class="cnt" id="rollCnt"></span>
-  </div>
-  <div class="roll-scroll" id="rollScroll"><canvas id="rollCv"></canvas></div>
-</div>
-
-<!-- модалка пака -->
-<div id="pack">
-  <div class="pack-box">
-    <h3>Пак ударных</h3>
-    <div class="sub">ФАЙЛ — ВЫБОР СЕМПЛА ИЗ ПАМЯТИ ТЕЛЕФОНА · СЛОТы 1–8</div>
-    <div class="net-head">PACK/ НА СЕРВЕРЕ · ПАПКА РЯДОМ С ЭТИМ ФАЙЛОМ</div>
-    <div id="netList" class="net-list"><div class="net-empty">Читаю…</div></div>
-    <div class="net-head">СЛОТЫ</div>
-    <div id="slots"></div>
-    <div class="pack-foot">
-      <button class="key" id="multiBtn">НЕСКОЛЬКО ФАЙЛОВ</button>
-      <button class="key" id="dirBtn">📁 ЗАГРУЗИТЬ ПАПКУ</button>
-      <button class="key" id="synthBtn">СБРОС НА СИНТЕЗ</button>
-      <button class="key lit" id="packClose">ГОТОВО</button>
+  <!-- модалка пака -->
+  <div id="pack">
+    <div class="pack-box">
+      <h3>Пак ударных</h3>
+      <div class="sub">ФАЙЛ — ВЫБОР СЕМПЛА ИЗ ПАМЯТИ ТЕЛЕФОНА · СЛОТЫ 1–8</div>
+      <div class="net-head">PACK/ НА СЕРВЕРЕ · ПАПКА РЯДОМ С ЭТИМ ФАЙЛОМ</div>
+      <div id="netList" class="net-list"><div class="net-empty">Читаю…</div></div>
+      <div class="net-head">СЛОТЫ</div>
+      <div id="slots"></div>
+      <div class="pack-foot">
+        <button class="key" id="multiBtn">НЕСКОЛЬКО ФАЙЛОВ</button>
+        <button class="key" id="dirBtn">📁 ЗАГРУЗИТЬ ПАПКУ</button>
+        <button class="key" id="synthBtn">СБРОС НА СИНТЕЗ</button>
+        <button class="key lit" id="packClose">ГОТОВО</button>
+      </div>
+      <div id="packStatus"></div>
     </div>
-    <div id="packStatus"></div>
   </div>
-</div>
 
-<div id="toast"></div>
-<div id="turn"><div class="ph"></div><b>Поверни телефон</b><span>РИТМ‑8 РАБОТАЕТ В ЛАНДШАФТЕ</span></div>
+  <div id="toast"></div>
+</div>
 
 <input type="file" id="fileSingle" accept="audio/*" hidden>
 <input type="file" id="fileMulti" accept="audio/*" multiple hidden>
@@ -299,6 +313,13 @@ const $=s=>document.querySelector(s);
 const $$=s=>document.querySelectorAll(s);
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,b));
 const dpr=Math.min(2,window.devicePixelRatio||1);
+/* повёрнут ли сейчас интерфейс (портретный телефон → альбомный вид) */
+let ROT=false;
+const mq=matchMedia('(orientation: portrait)');
+function setRot(){ROT=mq.matches;}
+if(mq.addEventListener)mq.addEventListener('change',setRot);else mq.addListener(setRot);
+setRot();
+function localDelta(sx,sy){return ROT?{x:sy,y:-sx}:{x:sx,y:sy};}
 
 /* ═══════════════ СОСТОЯНИЕ ═══════════════ */
 const PACK_FILES=['kick.wav','snare.wav','clap.wav','hat-c.wav','hat-o.wav','tom.wav','rim.wav','crash.wav'];
@@ -361,13 +382,13 @@ function setFilter(r,silent){
     filterNode.frequency.setTargetAtTime(fcNow(),t,.03);
     filterNode.Q.setTargetAtTime(.7+filtR*2.4,t,.05);
   }
-  $('#siFlt').textContent=filtR<.01?'FILTER: ОТКРЫТ':'FILTER: '+fmtFc(fcNow());
+  $('#fltBig').textContent=filtR<.01?'ОТКРЫТ':fmtFc(fcNow());
   if(!silent)toast('Фильтр: '+(filtR<.01?'открыт':fmtFc(fcNow())));
 }
 function applyBpm(v){
   bpm=clamp(Math.round(v),60,200);
   $('#bpmVal').textContent=bpm;
-  $('#siBpm').textContent=bpm+' BPM';
+  $('#bpmBig').textContent=bpm+' BPM';
   save();
 }
 function applySwing(v){
@@ -582,14 +603,12 @@ function recStart(){
   recArmed=true;
   currentLayer={events:[],active:false};
   $('#rec').classList.add('on');
-  $('#app').classList.add('rec-on');
   toast('ЗАПИСЬ: играй — удары сами встанут по сетке');
 }
 function finalizeRec(){
   if(!recArmed)return;
   recArmed=false;
   $('#rec').classList.remove('on');
-  $('#app').classList.remove('rec-on');
   if(currentLayer&&currentLayer.events.length){
     layers.push(currentLayer);
     updLoopCnt();
@@ -684,32 +703,69 @@ function updateLeds(step){
   }
 }
 
-/* ═══════════════ FX‑ПОЛОСА: темп ↔, фильтр ↕ ═══════════════ */
-const strip=$('#strip'),stripCv=$('#stripCv'),sctx=stripCv.getContext('2d');
-let sDrag=null,lastTap=0;
-strip.addEventListener('pointerdown',e=>{
+/* ═══════════════ ПОЛОСА ТЕМПА ═══════════════ */
+const bpmStrip=$('#bpmStrip'),bpmCv=$('#bpmCv'),bctx=bpmCv.getContext('2d');
+let bpmDrag=null,bpmTap=0;
+bpmStrip.addEventListener('pointerdown',e=>{
   e.preventDefault();
-  strip.setPointerCapture(e.pointerId);
+  bpmStrip.setPointerCapture(e.pointerId);
   const now=performance.now();
-  if(now-lastTap<300){lastTap=0;setFilter(0);toast('Фильтр сброшен');sDrag=null;return;}
-  lastTap=now;
-  sDrag={x:e.clientX,y:e.clientY,bpm:bpm,r:filtR,h:strip.clientHeight};
-  $('#stripHint').style.opacity=0;
+  if(now-bpmTap<300){bpmTap=0;applyBpm(120);toast('Темп: 120 BPM');bpmDrag=null;return;}
+  bpmTap=now;
+  bpmDrag={x:e.offsetX,bpm:bpm};
 });
-strip.addEventListener('pointermove',e=>{
-  if(!sDrag)return;
-  applyBpm(sDrag.bpm+(e.clientX-sDrag.x)*.45);
-  setFilter(sDrag.r+(e.clientY-sDrag.y)/sDrag.h,true);
+bpmStrip.addEventListener('pointermove',e=>{
+  if(!bpmDrag)return;
+  applyBpm(bpmDrag.bpm+(e.offsetX-bpmDrag.x)*.4);
 });
-['pointerup','pointercancel'].forEach(ev=>strip.addEventListener(ev,()=>{if(sDrag){sDrag=null;save();}}));
-function drawStrip(t){
-  const w=stripCv.clientWidth,h=stripCv.clientHeight;
+['pointerup','pointercancel'].forEach(ev=>bpmStrip.addEventListener(ev,()=>{if(bpmDrag){bpmDrag=null;save();}}));
+function drawBpm(){
+  const el=bpmCv,w=el.clientWidth,h=el.clientHeight;
   if(!w)return;
-  if(stripCv.width!==Math.round(w*dpr)){stripCv.width=Math.round(w*dpr);stripCv.height=Math.round(h*dpr);}
-  const c=sctx;
+  if(el.width!==Math.round(w*dpr)){el.width=Math.round(w*dpr);el.height=Math.round(h*dpr);}
+  const c=bctx;
   c.setTransform(dpr,0,0,dpr,0,0);
   c.clearRect(0,0,w,h);
-  const fc=fcNow(),N=64,beatEnv=Math.max(0,1-(t-lastBeat)*3);
+  const t=performance.now()/1000;
+  for(let v=60;v<=200;v+=10){
+    const x=(v-60)/140*w;
+    const big=v%20===0;
+    c.fillStyle=big?'rgba(255,255,255,.25)':'rgba(255,255,255,.10)';
+    c.fillRect(x-.75,h-6-(big?15:8),1.5,big?15:8);
+  }
+  const x=(bpm-60)/140*w;
+  const beatEnv=Math.max(0,1-(t-lastBeat)*3);
+  c.fillStyle='rgba(255,198,61,'+(0.10+0.22*beatEnv)+')';
+  c.fillRect(x-7,6,14,h-12);
+  c.fillStyle='#ffc63d';
+  c.fillRect(x-1.25,6,2.5,h-12);
+}
+
+/* ═══════════════ ПОЛОСА ФИЛЬТРА ═══════════════ */
+const fltStrip=$('#fltStrip'),fltCv=$('#fltCv'),ftx=fltCv.getContext('2d');
+let fltDrag=null,fltTap=0;
+fltStrip.addEventListener('pointerdown',e=>{
+  e.preventDefault();
+  fltStrip.setPointerCapture(e.pointerId);
+  const now=performance.now();
+  if(now-fltTap<300){fltTap=0;setFilter(0);toast('Фильтр: открыт');fltDrag=null;return;}
+  fltTap=now;
+  fltDrag={x:e.offsetX,r:filtR,w:fltStrip.clientWidth};
+});
+fltStrip.addEventListener('pointermove',e=>{
+  if(!fltDrag)return;
+  setFilter(fltDrag.r-(e.offsetX-fltDrag.x)/fltDrag.w,true);
+});
+['pointerup','pointercancel'].forEach(ev=>fltStrip.addEventListener(ev,()=>{if(fltDrag){fltDrag=null;save();}}));
+function drawFlt(){
+  const el=fltCv,w=el.clientWidth,h=el.clientHeight;
+  if(!w)return;
+  if(el.width!==Math.round(w*dpr)){el.width=Math.round(w*dpr);el.height=Math.round(h*dpr);}
+  const c=ftx;
+  c.setTransform(dpr,0,0,dpr,0,0);
+  c.clearRect(0,0,w,h);
+  const t=performance.now()/1000;
+  const fc=fcNow(),N=56,beatEnv=Math.max(0,1-(t-lastBeat)*3);
   for(let i=0;i<N;i++){
     const f=60*Math.pow(300,i/(N-1));
     const wob=Math.sin(i*.9+t*2.2)+Math.sin(i*.37-t*1.4);
@@ -717,10 +773,10 @@ function drawStrip(t){
     amp*=1/(1+Math.pow(f/fc,6));
     if(playing)amp*=.82+.18*beatEnv;
     const bh=Math.max(2,amp*(h-16)),x=i/(N-1)*w;
-    c.fillStyle=f<fc?'rgba(255,198,61,.85)':'rgba(88,104,124,.32)';
+    c.fillStyle=f<fc?'rgba(255,198,61,.85)':'rgba(88,104,124,.30)';
     c.fillRect(x,h-8-bh,w/N-1.6,bh);
   }
-  const lx=w*Math.log(fc/60)/Math.log(300);
+  const lx=(1-filtR)*w;
   c.fillStyle='rgba(255,255,255,.9)';
   c.fillRect(lx-1,5,2,h-10);
   c.fillStyle='rgba(255,255,255,.28)';
@@ -784,9 +840,10 @@ function transpose(d){
   save();updRollHead();
 }
 function cellAt(e){
-  const r=rollCv.getBoundingClientRect();
-  const x=e.clientX-r.left,y=e.clientY-r.top;   // уже в координатах холста (с учётом скролла)
+  // offsetX/offsetY уже в локальных координатах холста —
+  // корректно и при повёрнутом интерфейсе
   const sl=rollScroll.scrollLeft,st=rollScroll.scrollTop;
+  const x=e.offsetX,y=e.offsetY;
   if(x<sl+GUT||y<st+RULE)return null;           // попали в закреплённые линейки
   const s=Math.floor((x-GUT)/STEPW);
   const row=Math.floor((y-RULE)/ROWH);
@@ -815,8 +872,9 @@ rollCv.addEventListener('pointerdown',e=>{
 rollCv.addEventListener('pointermove',e=>{
   if(!rT)return;
   if(rT.pan){
-    rollScroll.scrollLeft=rT.sl-(e.clientX-rT.x);
-    rollScroll.scrollTop=rT.st-(e.clientY-rT.y);
+    const d=localDelta(e.clientX-rT.x,e.clientY-rT.y);
+    rollScroll.scrollLeft=rT.sl-d.x;
+    rollScroll.scrollTop=rT.st-d.y;
     return;
   }
   if(e.pointerType==='mouse'&&!(e.buttons&1))return;
@@ -1112,7 +1170,8 @@ function loadSaved(){
 /* ═══════════════ ГЛАВНЫЙ ЦИКЛ ═══════════════ */
 function frame(){
   requestAnimationFrame(frame);
-  drawStrip(performance.now()/1000);
+  drawBpm();
+  drawFlt();
   if(ctx){
     while(uiQ.length&&uiQ[0].t<=ctx.currentTime+.02){
       const it=uiQ.shift();
