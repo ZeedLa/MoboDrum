@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <!--
-  РИТМ‑8 · драм‑машина (один файл, мобильный ландшафт)
+  РИТМ‑8 · драм‑машина (один файл, альбомная ориентация)
   ─────────────────────────────────────────────────────────
-  Интерфейс всегда альбомный: в портрете приложение само
-  поворачивается на 90° — ничего нажимать не нужно.
+  Приложение рассчитано на ландшафт: в портрете появится
+  просьба повернуть телефон.
 
   ДЛЯ GITHUB PAGES — два способа подключить свой пак:
 
@@ -54,8 +54,6 @@
 :root{
   --bg:#0e1319; --panel:#161d27; --panel2:#121926; --line:#2b3546;
   --ink:#eef2f7; --dim:#8b98a9; --amber:#ffc63d; --hot:#ff8a3d; --rec:#ff5b4d;
-  --sat:env(safe-area-inset-top); --sar:env(safe-area-inset-right);
-  --sab:env(safe-area-inset-bottom); --sal:env(safe-area-inset-left);
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{position:fixed;inset:0;overflow:hidden;overscroll-behavior:none}
@@ -77,20 +75,8 @@ body{
   background:radial-gradient(700px 340px at 50% 118%, rgba(255,138,61,.22), transparent 70%);}
 #pulse.on{opacity:1;transition:none}
 
-/* ── сцена: в портрете принудительно поворачивается в ландшафт ── */
-#stage{position:fixed;top:0;left:0;width:100vw;width:100dvw;height:100vh;height:100dvh;z-index:1}
-@media (orientation: portrait){
-  :root{--sat:0px;--sar:0px;--sab:0px;--sal:0px}
-  #stage{
-    left:100vw;top:0;
-    width:100vh;width:100dvh;
-    height:100vw;height:100dvw;
-    transform-origin:0 0;
-    transform:rotate(90deg);
-  }
-}
-#app{position:relative;display:flex;flex-direction:column;height:100%;gap:8px;
-  padding:calc(8px + var(--sat)) calc(10px + var(--sar)) calc(8px + var(--sab)) calc(10px + var(--sal));}
+#app{position:fixed;inset:0;z-index:1;display:flex;flex-direction:column;gap:8px;
+  padding:calc(8px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));}
 
 /* ── верхняя панель ── */
 #top{display:flex;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:none;
@@ -183,7 +169,7 @@ body{
 #roll{position:fixed;inset:0;z-index:40;display:none;flex-direction:column;background:#0d1219}
 #roll.open{display:flex}
 .roll-head{flex:none;display:flex;align-items:center;gap:7px;flex-wrap:wrap;row-gap:4px;
-  padding:calc(6px + var(--sat)) 10px 6px;background:var(--panel2);border-bottom:1px solid var(--line)}
+  padding:calc(6px + env(safe-area-inset-top)) 10px 6px;background:var(--panel2);border-bottom:1px solid var(--line)}
 .roll-head .chip{display:flex;align-items:center;gap:7px;font-family:Unbounded;font-weight:700;font-size:14px}
 .roll-head .chip i{width:12px;height:12px;border-radius:3px;background:var(--c);box-shadow:0 0 10px var(--c)}
 .roll-head .cnt{font:500 10px 'JetBrains Mono';color:var(--dim);letter-spacing:.1em}
@@ -195,7 +181,7 @@ body{
 #pack{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;
   background:rgba(5,8,12,.72);backdrop-filter:blur(3px)}
 #pack.open{display:flex}
-.pack-box{width:min(580px,94vw);max-height:86%;overflow:auto;background:#151c27;
+.pack-box{width:min(580px,94vw);max-height:86dvh;overflow:auto;background:#151c27;
   border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 24px 60px rgba(0,0,0,.6)}
 .pack-box h3{font-family:Unbounded;font-size:15px;margin-bottom:2px}
 .pack-box .sub{font:500 9px 'JetBrains Mono';letter-spacing:.12em;color:var(--dim);margin-bottom:10px}
@@ -222,85 +208,93 @@ body{
 #toast{position:fixed;left:50%;bottom:84px;transform:translate(-50%,16px);z-index:60;opacity:0;pointer-events:none;
   background:#1c2532;border:1px solid #3a4658;border-radius:10px;padding:8px 14px;
   font:700 11px 'JetBrains Mono';letter-spacing:.06em;color:var(--ink);
-  box-shadow:0 10px 30px rgba(0,0,0,.5);transition:.3s;max-width:86%;text-align:center}
+  box-shadow:0 10px 30px rgba(0,0,0,.5);transition:.3s;max-width:86vw;text-align:center}
 #toast.show{opacity:1;transform:translate(-50%,0)}
+#turn{position:fixed;inset:0;z-index:99;display:none;flex-direction:column;align-items:center;
+  justify-content:center;gap:22px;background:#0c1117;text-align:center;padding:20px}
+#turn .ph{width:52px;height:92px;border:3px solid var(--amber);border-radius:12px;
+  animation:rot 1.8s ease-in-out infinite;box-shadow:0 0 24px rgba(255,198,61,.25)}
+#turn b{font-family:Unbounded;font-weight:700;font-size:17px}
+#turn span{font:500 10px 'JetBrains Mono';letter-spacing:.22em;color:var(--dim)}
+@keyframes rot{0%,18%{transform:rotate(0)}62%,100%{transform:rotate(90deg)}}
+@media (orientation:portrait){#turn{display:flex}}
+@media (max-width:740px){.brand small{display:none}}
 </style>
 </head>
 <body>
 <div id="grid-bg"></div><div id="noise"></div><div id="pulse"></div>
 
-<div id="stage">
-  <div id="app">
-    <header id="top">
-      <div class="brand"><span class="dot" id="beatDot"></span><div><b>РИТМ‑8</b><small>DRUM COMPUTER · LIVE LOOP</small></div></div>
-      <div class="spacer"></div>
-      <button class="key" id="play" aria-label="Пуск"></button>
-      <div class="bpmbox"><label>ТЕМП</label><b id="bpmVal">120</b><i>BPM</i></div>
-      <div class="swingbox"><label>СВИНГ</label>
-        <div class="srow"><input type="range" id="swingIn" min="0" max="60" value="0"><b id="swingVal">0%</b></div>
-      </div>
-      <div class="seg"><span class="lbl">ТАКТЫ</span><span id="barsSeg"></span></div>
-      <div class="recgrp">
-        <button class="key rec" id="rec"><i></i>REC</button>
-        <span id="loopCnt">×0</span>
-        <button class="key" id="undo" aria-label="Убрать последний луп">↩</button>
-        <button class="key" id="clearL" aria-label="Убрать все лупы">✕</button>
-      </div>
-      <button class="key" id="packBtn">🎛 ПАК</button>
-    </header>
+<div id="app">
+  <header id="top">
+    <div class="brand"><span class="dot" id="beatDot"></span><div><b>РИТМ‑8</b><small>DRUM COMPUTER · LIVE LOOP</small></div></div>
+    <div class="spacer"></div>
+    <button class="key" id="play" aria-label="Пуск"></button>
+    <div class="bpmbox"><label>ТЕМП</label><b id="bpmVal">120</b><i>BPM</i></div>
+    <div class="swingbox"><label>СВИНГ</label>
+      <div class="srow"><input type="range" id="swingIn" min="0" max="60" value="0"><b id="swingVal">0%</b></div>
+    </div>
+    <div class="seg"><span class="lbl">ТАКТЫ</span><span id="barsSeg"></span></div>
+    <div class="recgrp">
+      <button class="key rec" id="rec"><i></i>REC</button>
+      <span id="loopCnt">×0</span>
+      <button class="key" id="undo" aria-label="Убрать последний луп">↩</button>
+      <button class="key" id="clearL" aria-label="Убрать все лупы">✕</button>
+    </div>
+    <button class="key" id="packBtn">🎛 ПАК</button>
+  </header>
 
-    <div id="pads"></div>
+  <div id="pads"></div>
 
-    <div id="ctrls">
-      <div class="ctrl" id="bpmStrip">
-        <canvas id="bpmCv"></canvas>
-        <div class="lab">ТЕМП</div>
-        <div class="val" id="bpmBig">120 BPM</div>
-      </div>
-      <div class="ctrl" id="fltStrip">
-        <canvas id="fltCv"></canvas>
-        <div class="lab">ФИЛЬТР</div>
-        <div class="val" id="fltBig">ОТКРЫТ</div>
-      </div>
+  <div id="ctrls">
+    <div class="ctrl" id="bpmStrip">
+      <canvas id="bpmCv"></canvas>
+      <div class="lab">ТЕМП</div>
+      <div class="val" id="bpmBig">120 BPM</div>
+    </div>
+    <div class="ctrl" id="fltStrip">
+      <canvas id="fltCv"></canvas>
+      <div class="lab">ФИЛЬТР</div>
+      <div class="val" id="fltBig">ОТКРЫТ</div>
     </div>
   </div>
-
-  <!-- пиано-ролл -->
-  <div id="roll">
-    <div class="roll-head">
-      <button class="key" id="rollBack">← НАЗАД</button>
-      <div class="chip" id="rollChip"><i></i><span id="rollName"></span></div>
-      <button class="key" id="rollDn">ТОН −</button>
-      <button class="key" id="rollUp">ТОН +</button>
-      <button class="key" id="rollClear">ОЧИСТИТЬ</button>
-      <button class="key lit" id="modeDraw">✎ НОТЫ</button>
-      <button class="key" id="modePan">✋ РУКА</button>
-      <span class="cnt" id="rollCnt"></span>
-    </div>
-    <div class="roll-scroll" id="rollScroll"><canvas id="rollCv"></canvas></div>
-  </div>
-
-  <!-- модалка пака -->
-  <div id="pack">
-    <div class="pack-box">
-      <h3>Пак ударных</h3>
-      <div class="sub">ФАЙЛ — ВЫБОР СЕМПЛА ИЗ ПАМЯТИ ТЕЛЕФОНА · СЛОТЫ 1–8</div>
-      <div class="net-head">PACK/ НА СЕРВЕРЕ · ПАПКА РЯДОМ С ЭТИМ ФАЙЛОМ</div>
-      <div id="netList" class="net-list"><div class="net-empty">Читаю…</div></div>
-      <div class="net-head">СЛОТЫ</div>
-      <div id="slots"></div>
-      <div class="pack-foot">
-        <button class="key" id="multiBtn">НЕСКОЛЬКО ФАЙЛОВ</button>
-        <button class="key" id="dirBtn">📁 ЗАГРУЗИТЬ ПАПКУ</button>
-        <button class="key" id="synthBtn">СБРОС НА СИНТЕЗ</button>
-        <button class="key lit" id="packClose">ГОТОВО</button>
-      </div>
-      <div id="packStatus"></div>
-    </div>
-  </div>
-
-  <div id="toast"></div>
 </div>
+
+<!-- пиано-ролл -->
+<div id="roll">
+  <div class="roll-head">
+    <button class="key" id="rollBack">← НАЗАД</button>
+    <div class="chip" id="rollChip"><i></i><span id="rollName"></span></div>
+    <button class="key" id="rollDn">ТОН −</button>
+    <button class="key" id="rollUp">ТОН +</button>
+    <button class="key" id="rollClear">ОЧИСТИТЬ</button>
+    <button class="key lit" id="modeDraw">✎ НОТЫ</button>
+    <button class="key" id="modePan">✋ РУКА</button>
+    <span class="cnt" id="rollCnt"></span>
+  </div>
+  <div class="roll-scroll" id="rollScroll"><canvas id="rollCv"></canvas></div>
+</div>
+
+<!-- модалка пака -->
+<div id="pack">
+  <div class="pack-box">
+    <h3>Пак ударных</h3>
+    <div class="sub">ФАЙЛ — ВЫБОР СЕМПЛА ИЗ ПАМЯТИ ТЕЛЕФОНА · СЛОТЫ 1–8</div>
+    <div class="net-head">PACK/ НА СЕРВЕРЕ · ПАПКА РЯДОМ С ЭТИМ ФАЙЛОМ</div>
+    <div id="netList" class="net-list"><div class="net-empty">Читаю…</div></div>
+    <div class="net-head">СЛОТЫ</div>
+    <div id="slots"></div>
+    <div class="pack-foot">
+      <button class="key" id="multiBtn">НЕСКОЛЬКО ФАЙЛОВ</button>
+      <button class="key" id="dirBtn">📁 ЗАГРУЗИТЬ ПАПКУ</button>
+      <button class="key" id="synthBtn">СБРОС НА СИНТЕЗ</button>
+      <button class="key lit" id="packClose">ГОТОВО</button>
+    </div>
+    <div id="packStatus"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="turn"><div class="ph"></div><b>Поверни телефон</b><span>РИТМ‑8 РАБОТАЕТ В ЛАНДШАФТЕ</span></div>
 
 <input type="file" id="fileSingle" accept="audio/*" hidden>
 <input type="file" id="fileMulti" accept="audio/*" multiple hidden>
@@ -313,18 +307,9 @@ const $=s=>document.querySelector(s);
 const $$=s=>document.querySelectorAll(s);
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,b));
 const dpr=Math.min(2,window.devicePixelRatio||1);
-/* повёрнут ли сейчас интерфейс (портретный телефон → альбомный вид) */
-let ROT=false;
-const mq=matchMedia('(orientation: portrait)');
-function setRot(){ROT=mq.matches;}
-if(mq.addEventListener)mq.addEventListener('change',setRot);else mq.addListener(setRot);
-setRot();
-/* экранный вектор → вектор в координатах приложения (с учётом поворота) */
-function localDelta(sx,sy){return ROT?{x:sy,y:-sx}:{x:sx,y:sy};}
-/* точка на экране → локальные координаты элемента (работает и при повороте сцены) */
-function elPoint(cv,e){
-  const r=cv.getBoundingClientRect();
-  if(ROT)return {x:e.clientY-r.top, y:r.right-e.clientX};
+/* точка на экране → локальные координаты элемента */
+function elPoint(el,e){
+  const r=el.getBoundingClientRect();
   return {x:e.clientX-r.left, y:e.clientY-r.top};
 }
 function capture(el,id){try{el.setPointerCapture(id);}catch(err){}}
@@ -720,12 +705,11 @@ bpmStrip.addEventListener('pointerdown',e=>{
   const now=performance.now();
   if(now-bpmTap<300){bpmTap=0;applyBpm(120);toast('Темп: 120 BPM');bpmDrag=null;return;}
   bpmTap=now;
-  bpmDrag={x:e.clientX,y:e.clientY,bpm:bpm};
+  bpmDrag={x:e.clientX,bpm:bpm};
 });
 bpmStrip.addEventListener('pointermove',e=>{
   if(!bpmDrag)return;
-  const d=localDelta(e.clientX-bpmDrag.x,e.clientY-bpmDrag.y);
-  applyBpm(bpmDrag.bpm+d.x*.4);
+  applyBpm(bpmDrag.bpm+(e.clientX-bpmDrag.x)*.4);
 });
 ['pointerup','pointercancel'].forEach(ev=>bpmStrip.addEventListener(ev,()=>{if(bpmDrag){bpmDrag=null;save();}}));
 function drawBpm(){
@@ -759,12 +743,11 @@ fltStrip.addEventListener('pointerdown',e=>{
   const now=performance.now();
   if(now-fltTap<300){fltTap=0;setFilter(0);toast('Фильтр: открыт');fltDrag=null;return;}
   fltTap=now;
-  fltDrag={x:e.clientX,y:e.clientY,r:filtR,w:fltStrip.clientWidth};
+  fltDrag={x:e.clientX,r:filtR,w:fltStrip.clientWidth};
 });
 fltStrip.addEventListener('pointermove',e=>{
   if(!fltDrag)return;
-  const d=localDelta(e.clientX-fltDrag.x,e.clientY-fltDrag.y);
-  setFilter(fltDrag.r-d.x/fltDrag.w,true);
+  setFilter(fltDrag.r-(e.clientX-fltDrag.x)/fltDrag.w,true);
 });
 ['pointerup','pointercancel'].forEach(ev=>fltStrip.addEventListener(ev,()=>{if(fltDrag){fltDrag=null;save();}}));
 function drawFlt(){
@@ -850,7 +833,7 @@ function transpose(d){
   save();updRollHead();
 }
 function cellAt(e){
-  const pnt=elPoint(rollCv,e);                  // локальные координаты холста
+  const pnt=elPoint(rollCv,e);                  // координаты холста (уже со скроллом)
   const sl=rollScroll.scrollLeft,st=rollScroll.scrollTop;
   if(pnt.x<sl+GUT||pnt.y<st+RULE)return null;   // попали в закреплённые линейки
   const s=Math.floor((pnt.x-GUT)/STEPW);
@@ -880,9 +863,8 @@ rollCv.addEventListener('pointerdown',e=>{
 rollCv.addEventListener('pointermove',e=>{
   if(!rT)return;
   if(rT.pan){
-    const d=localDelta(e.clientX-rT.x,e.clientY-rT.y);
-    rollScroll.scrollLeft=rT.sl-d.x;
-    rollScroll.scrollTop=rT.st-d.y;
+    rollScroll.scrollLeft=rT.sl-(e.clientX-rT.x);
+    rollScroll.scrollTop=rT.st-(e.clientY-rT.y);
     return;
   }
   if(e.pointerType==='mouse'&&!(e.buttons&1))return;
