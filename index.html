@@ -22,14 +22,17 @@
          ]
        }
      Порядок в массиве = номер пада (или явно "pad": 0..7).
+     Если файла нет — пад остаётся на встроенном синтезе.
 
-  Если файла нет — пад остаётся на встроенном синтезированном звуке.
-  Свои семплы можно грузить и из интерфейса: кнопка ПАК
-  (по одному файлу, несколько сразу, или целую папку с подпапками).
+  LIVE-РЕЖИМ:
+    ▶ — включить транспорт → ● REC — играй на падах (удары сами
+    встают по сетке) → ● REC снова — луп уходит играть фоном,
+    можно писать следующий поверх. ↩ — удалить последний луп,
+    ✕ — удалить все. Лупы живут до перезагрузки страницы.
 
   Управление:
     тап по паду — удар · кнопка «столбики» на паду — пиано‑ролл
-    в пиано‑ролле: режим ✎ — тап/слайд ставит ноты, режим ✋ — прокрутка
+    в пиано‑ролле: ✎ — тап/слайд ставит ноты, ✋ — прокрутка
     нижняя полоса: слайд ↔ темп · слайд ↕ фильтр · двойной тап — сброс
     клавиатура: 1‑8 пады, пробел — плей/стоп, Esc — закрыть окна
 -->
@@ -46,7 +49,7 @@
 <style>
 :root{
   --bg:#0e1319; --panel:#161d27; --panel2:#121926; --line:#2b3546;
-  --ink:#eef2f7; --dim:#8b98a9; --amber:#ffc63d; --hot:#ff8a3d;
+  --ink:#eef2f7; --dim:#8b98a9; --amber:#ffc63d; --hot:#ff8a3d; --rec:#ff5b4d;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{position:fixed;inset:0;overflow:hidden;overscroll-behavior:none}
@@ -67,20 +70,24 @@ body{
 #pulse{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:0;transition:opacity .28s ease-out;
   background:radial-gradient(700px 340px at 50% 118%, rgba(255,138,61,.22), transparent 70%);}
 #pulse.on{opacity:1;transition:none}
+#app.rec-on{--padline:rgba(255,91,77,.5)}
 
 #app{position:relative;z-index:1;display:flex;flex-direction:column;height:100dvh;gap:8px;
   padding:calc(8px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));}
 
 /* ── верхняя панель ── */
-#top{display:flex;align-items:center;gap:10px;background:linear-gradient(180deg,#1a2230,#141b26);
+#top{display:flex;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:none;
+  background:linear-gradient(180deg,#1a2230,#141b26);
   border:1px solid var(--line);border-radius:14px;padding:7px 12px;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 6px 18px rgba(0,0,0,.35);}
+#top::-webkit-scrollbar{display:none}
+#top>*{flex:none}
 .brand{display:flex;align-items:center;gap:9px;margin-right:2px}
 .brand .dot{width:9px;height:9px;border-radius:50%;background:#3a2a1a;box-shadow:0 0 0 2px rgba(255,198,61,.15);transition:.1s}
 .brand .dot.on{background:var(--amber);box-shadow:0 0 12px var(--amber)}
 .brand b{font-family:Unbounded;font-weight:900;font-size:18px;letter-spacing:.04em;line-height:1}
 .brand small{display:block;font:500 7.5px/1.6 'JetBrains Mono';letter-spacing:.3em;color:var(--dim)}
-.spacer{flex:1}
+.spacer{flex:1;min-width:4px}
 .key{font-family:Manrope;font-weight:800;color:var(--ink);background:linear-gradient(180deg,#26303f,#181f2b);
   border:1px solid #38445a;border-radius:10px;box-shadow:0 3px 0 #0b0f15,inset 0 1px 0 rgba(255,255,255,.1);
   padding:0 12px;height:38px;font-size:12px;letter-spacing:.06em;cursor:pointer;touch-action:manipulation;
@@ -88,17 +95,32 @@ body{
 .key:active{transform:translateY(2px);box-shadow:0 1px 0 #0b0f15}
 .key.lit{background:linear-gradient(180deg,#ffd76a,#e8a52c);color:#241a05;border-color:#ffdf8a;
   box-shadow:0 3px 0 #7a5410,0 0 16px rgba(255,198,61,.35)}
-#play{width:64px;height:42px;color:var(--amber)}
+#play{width:60px;height:42px;color:var(--amber)}
 #play.playing{color:#1c1204;background:linear-gradient(180deg,#ffb14d,#ff7f2e);border-color:#ffcf9a;
   box-shadow:0 3px 0 #7a3a10,0 0 20px rgba(255,138,61,.5)}
-.bpmbox{text-align:center;min-width:70px}
+.bpmbox{text-align:center;min-width:64px}
 .bpmbox label{display:block;font:500 7.5px/1 'JetBrains Mono';letter-spacing:.3em;color:var(--dim);margin-bottom:3px}
 .bpmbox b{font:700 21px/1 'JetBrains Mono';color:var(--amber);text-shadow:0 0 12px rgba(255,198,61,.35)}
 .bpmbox i{font:500 9px 'JetBrains Mono';color:var(--dim);font-style:normal;margin-left:2px}
+.swingbox{display:flex;flex-direction:column;align-items:center;gap:1px}
+.swingbox label{font:500 7.5px/1 'JetBrains Mono';letter-spacing:.24em;color:var(--dim)}
+.srow{display:flex;align-items:center;gap:6px}
+.srow input[type=range]{width:82px;height:24px;accent-color:var(--amber)}
+#swingVal{font:700 11px/1 'JetBrains Mono';color:var(--amber);min-width:34px;text-align:left}
 .seg{display:flex;gap:4px;align-items:center}
 .seg .lbl{font:500 7.5px/1.3 'JetBrains Mono';letter-spacing:.24em;color:var(--dim);margin-right:4px;text-align:center}
 #barsSeg{display:flex;gap:4px}
-#barsSeg .key{width:34px;padding:0}
+#barsSeg .key{width:32px;padding:0}
+.recgrp{display:flex;gap:5px;align-items:center;padding:0 2px}
+.key.rec{color:#ffb3a8}
+.key.rec i{width:9px;height:9px;border-radius:50%;background:var(--rec);box-shadow:0 0 8px rgba(255,91,77,.8)}
+.key.rec.on{border-color:#ff8a7a;background:linear-gradient(180deg,#3a1f22,#241418);animation:recpulse 1s infinite}
+.key.rec.on i{animation:blink .5s infinite alternate}
+@keyframes recpulse{0%{box-shadow:0 3px 0 #0b0f15,0 0 0 0 rgba(255,91,77,.45)}100%{box-shadow:0 3px 0 #0b0f15,0 0 0 10px rgba(255,91,77,0)}}
+@keyframes blink{from{opacity:1}to{opacity:.25}}
+#loopCnt{font:700 12px 'JetBrains Mono';color:var(--dim);min-width:30px;text-align:center}
+#loopCnt.lit{color:var(--rec);text-shadow:0 0 10px rgba(255,91,77,.5)}
+#undo,#clearL{width:40px;padding:0}
 
 /* ── пады ── */
 #pads{flex:1;min-height:0;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr 1fr;gap:8px}
@@ -112,18 +134,18 @@ body{
 .pad.hit{transform:translateY(2px) scale(.985);filter:saturate(1.6) brightness(1.4);
   box-shadow:0 0 26px color-mix(in oklab, var(--c) 55%, transparent), inset 0 1px 0 rgba(255,255,255,.15);}
 .pad.muted{filter:grayscale(.8) brightness(.6)}
-.pname{position:absolute;top:8px;left:11px;font-family:Unbounded;font-weight:700;font-size:13px;
-  letter-spacing:.05em;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,.6);max-width:calc(100% - 46px);
+.pname{position:absolute;top:9px;left:11px;font-family:Unbounded;font-weight:700;font-size:13px;
+  letter-spacing:.05em;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,.6);max-width:calc(100% - 52px);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.psrc{position:absolute;left:11px;bottom:24px;font:700 8px 'JetBrains Mono';letter-spacing:.2em;opacity:.9;color:var(--c)}
-.pidx{position:absolute;top:9px;right:38px;font:500 9px 'JetBrains Mono';color:rgba(255,255,255,.35)}
-.corner{position:absolute;width:27px;height:27px;border-radius:8px;display:grid;place-items:center;
+.pnum{font:700 9px 'JetBrains Mono';opacity:.5;margin-right:5px}
+.psrc{position:absolute;left:11px;bottom:25px;font:700 8px 'JetBrains Mono';letter-spacing:.2em;opacity:.9;color:var(--c)}
+.corner{position:absolute;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
   background:rgba(0,0,0,.38);border:1px solid rgba(255,255,255,.18);color:#dfe6ee;cursor:pointer;touch-action:manipulation;}
 .corner:active{background:var(--c);color:#10151c}
 .corner.edit{top:7px;right:7px}
-.corner.mute{bottom:20px;right:7px;font:800 10px Manrope}
+.corner.mute{bottom:23px;right:7px;font:800 10px Manrope}
 .corner.mute.on{background:var(--c);color:#10151c;border-color:var(--c)}
-.leds{position:absolute;left:10px;right:10px;bottom:8px;display:flex;gap:3px;pointer-events:none}
+.leds{position:absolute;left:10px;right:44px;bottom:8px;display:flex;gap:3px;pointer-events:none}
 .leds i{flex:1;height:5px;border-radius:2px;background:rgba(255,255,255,.1);transition:background .12s}
 .leds i.note{background:color-mix(in oklab, var(--c) 55%, transparent)}
 .leds i.now{background:#fff;box-shadow:0 0 9px var(--c)}
@@ -160,7 +182,16 @@ body{
 .pack-box{width:min(580px,94vw);max-height:86dvh;overflow:auto;background:#151c27;
   border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 24px 60px rgba(0,0,0,.6)}
 .pack-box h3{font-family:Unbounded;font-size:15px;margin-bottom:2px}
-.pack-box .sub{font:500 9px 'JetBrains Mono';letter-spacing:.14em;color:var(--dim);margin-bottom:10px}
+.pack-box .sub{font:500 9px 'JetBrains Mono';letter-spacing:.12em;color:var(--dim);margin-bottom:10px}
+.net-head{font:700 9px 'JetBrains Mono';letter-spacing:.22em;color:var(--amber);margin:12px 0 4px}
+.net-list{border:1px solid var(--line);border-radius:10px;overflow:hidden;max-height:120px;overflow-y:auto}
+.net-row{display:flex;justify-content:space-between;gap:10px;padding:5px 9px;
+  font:500 9.5px 'JetBrains Mono';letter-spacing:.04em}
+.net-row:nth-child(odd){background:rgba(255,255,255,.025)}
+.net-row .nf{color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.net-row .np{color:#6fdc8c;flex:none}
+.net-row.fail .np{color:#ff8a7a}
+.net-empty{padding:9px;font:500 9.5px/1.6 'JetBrains Mono';color:var(--dim);letter-spacing:.04em}
 .slot{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:10px}
 .slot:nth-child(odd){background:rgba(255,255,255,.025)}
 .slot i{width:11px;height:11px;border-radius:3px;flex:none}
@@ -193,11 +224,20 @@ body{
 
 <div id="app">
   <header id="top">
-    <div class="brand"><span class="dot" id="beatDot"></span><div><b>РИТМ‑8</b><small>DRUM COMPUTER · 8 VOICES</small></div></div>
+    <div class="brand"><span class="dot" id="beatDot"></span><div><b>РИТМ‑8</b><small>DRUM COMPUTER · LIVE LOOP</small></div></div>
     <div class="spacer"></div>
     <button class="key" id="play" aria-label="Пуск"></button>
     <div class="bpmbox"><label>ТЕМП</label><b id="bpmVal">120</b><i>BPM</i></div>
+    <div class="swingbox"><label>СВИНГ</label>
+      <div class="srow"><input type="range" id="swingIn" min="0" max="60" value="0"><b id="swingVal">0%</b></div>
+    </div>
     <div class="seg"><span class="lbl">ТАКТЫ</span><span id="barsSeg"></span></div>
+    <div class="recgrp">
+      <button class="key rec" id="rec"><i></i>REC</button>
+      <span id="loopCnt">×0</span>
+      <button class="key" id="undo" aria-label="Убрать последний луп">↩</button>
+      <button class="key" id="clearL" aria-label="Убрать все лупы">✕</button>
+    </div>
     <button class="key" id="packBtn">🎛 ПАК</button>
   </header>
 
@@ -230,7 +270,10 @@ body{
 <div id="pack">
   <div class="pack-box">
     <h3>Пак ударных</h3>
-    <div class="sub">8 СЛОТОВ · WAV / MP3 / OGG / M4A · МОЖНО ПАПКИ С ПОДПАПКАМИ</div>
+    <div class="sub">ФАЙЛ — ВЫБОР СЕМПЛА ИЗ ПАМЯТИ ТЕЛЕФОНА · СЛОТы 1–8</div>
+    <div class="net-head">PACK/ НА СЕРВЕРЕ · ПАПКА РЯДОМ С ЭТИМ ФАЙЛОМ</div>
+    <div id="netList" class="net-list"><div class="net-empty">Читаю…</div></div>
+    <div class="net-head">СЛОТЫ</div>
     <div id="slots"></div>
     <div class="pack-foot">
       <button class="key" id="multiBtn">НЕСКОЛЬКО ФАЙЛОВ</button>
@@ -254,7 +297,7 @@ body{
 /* ═══════════════ УТИЛИТЫ ═══════════════ */
 const $=s=>document.querySelector(s);
 const $$=s=>document.querySelectorAll(s);
-const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,b));
 const dpr=Math.min(2,window.devicePixelRatio||1);
 
 /* ═══════════════ СОСТОЯНИЕ ═══════════════ */
@@ -273,13 +316,17 @@ const MAX_STEPS=64;
 const pads=PAD_DEFS.map(d=>({
   name:d.name,color:d.color,vol:d.vol,choke:d.choke,
   buffer:null,kind:'synth',label:'синтез',mute:false,
-  notes:new Array(MAX_STEPS).fill(null),actives:[],el:null,leds:[]
+  notes:new Array(MAX_STEPS).fill(null),actives:[],el:null,leds:[],nameEl:null
 }));
-let bpm=120, bars=1, playing=false, cur=0, nextT=0, schedTimer=0;
+let bpm=120, bars=1, swing=0;                  // swing: 0..0.6
+let playing=false, cur=0, nextT=0, schedTimer=0, cycleStartT=0;
 let filtR=0;                                   // 0 = открыт, 1 = закрыт
+let recArmed=false, currentLayer=null;
+const layers=[];                               // фоновые лупы: {events:[{pad,step}], active}
 let rollPad=-1, rollMode='draw', rollW=0, rollH=0;
 const tr={step:0,time:0};
 let lastBeat=0, packTried=false, pendingSlot=-1;
+let netInfo=[];                                // что нашлось в pack/ на сервере
 const uiQ=[];
 const synthBuffers=new Array(8).fill(null);
 const steps=()=>bars*16;
@@ -323,6 +370,12 @@ function applyBpm(v){
   $('#siBpm').textContent=bpm+' BPM';
   save();
 }
+function applySwing(v){
+  swing=clamp(v/100,0,.6);
+  $('#swingIn').value=Math.round(swing*100);
+  $('#swingVal').textContent=Math.round(swing*100)+'%';
+  save();
+}
 function triggerPad(i,semi,when,vel){
   if(!ctx||!pads[i].buffer)return;
   const p=pads[i];
@@ -346,6 +399,7 @@ function triggerPad(i,semi,when,vel){
   p.actives.push(rec);
   s.onended=()=>{const k=p.actives.indexOf(rec);if(k>=0)p.actives.splice(k,1);};
   uiQ.push({t:when,kind:'hit',i:i});
+  if(uiQ.length>160)uiQ.shift();
   if(i===0)lastBeat=performance.now()/1000;
 }
 
@@ -459,12 +513,13 @@ const playSvg='<svg viewBox="0 0 20 20" width="18" height="18" fill="currentColo
 const pauseSvg='<svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor"><rect x="4" y="3" width="4.4" height="14" rx="1"/><rect x="11.6" y="3" width="4.4" height="14" rx="1"/></svg>';
 const rollSvg='<svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M2 2h3v12H2zM6.5 2h3v8h-3zM11 2h3v5h-3z"/></svg>';
 function start(){
-  playing=true;cur=0;nextT=ctx.currentTime+.08;
+  playing=true;cur=0;nextT=ctx.currentTime+.08;cycleStartT=nextT;
   schedTimer=setInterval(schedule,25);
   $('#play').classList.add('playing');
   $('#play').innerHTML=pauseSvg;
 }
 function stopSeq(){
+  finalizeRec();
   playing=false;clearInterval(schedTimer);
   $('#play').classList.remove('playing');
   $('#play').innerHTML=playSvg;
@@ -475,14 +530,22 @@ function schedule(){
   const ahead=ctx.currentTime+.14;
   while(nextT<ahead){
     const s=cur;
+    const sw=(s%2===1)?swing*stepDur():0;   // свинг: сдвигаем нечётные 16‑е
+    const when=nextT+sw;
     pads.forEach((p,i)=>{
-      if(!p.mute){
-        const n=p.notes[s];
-        if(n!=null)triggerPad(i,n,nextT);
-      }
+      if(!p.mute){const n=p.notes[s];if(n!=null)triggerPad(i,n,when);}
     });
-    uiQ.push({t:nextT,kind:'step',step:s});
+    for(let li=0;li<layers.length;li++){
+      const L=layers[li];
+      if(!L.active){ if(s===0)L.active=true; else continue; }
+      for(let k=0;k<L.events.length;k++){
+        const ev=L.events[k];
+        if(ev.step===s&&!pads[ev.pad].mute)triggerPad(ev.pad,0,when);
+      }
+    }
+    uiQ.push({t:when,kind:'step',step:s});
     if(uiQ.length>160)uiQ.shift();
+    if(s===0)cycleStartT=nextT;
     nextT+=stepDur();
     cur=(cur+1)%steps();
   }
@@ -509,26 +572,81 @@ function paintSeg(){
   [...seg.children].forEach((k,i)=>k.classList.toggle('lit',i+1===bars));
 }
 
+/* свинг */
+$('#swingIn').addEventListener('input',e=>applySwing(parseInt(e.target.value,10)));
+
+/* ═══════════════ LIVE‑ЗАПИСЬ ЛУПОВ ═══════════════ */
+function recStart(){
+  ensureAudio();
+  if(!playing)start();
+  recArmed=true;
+  currentLayer={events:[],active:false};
+  $('#rec').classList.add('on');
+  $('#app').classList.add('rec-on');
+  toast('ЗАПИСЬ: играй — удары сами встанут по сетке');
+}
+function finalizeRec(){
+  if(!recArmed)return;
+  recArmed=false;
+  $('#rec').classList.remove('on');
+  $('#app').classList.remove('rec-on');
+  if(currentLayer&&currentLayer.events.length){
+    layers.push(currentLayer);
+    updLoopCnt();
+    toast('Луп '+layers.length+' играет фоном · жми REC для следующего');
+  }
+  currentLayer=null;
+}
+function updLoopCnt(){
+  const el=$('#loopCnt');
+  el.textContent='×'+layers.length;
+  el.classList.toggle('lit',layers.length>0);
+}
+$('#rec').addEventListener('click',()=>{recArmed?finalizeRec():recStart();});
+$('#undo').addEventListener('click',()=>{
+  if(layers.length){layers.pop();updLoopCnt();toast('Последний луп удалён');}
+});
+$('#clearL').addEventListener('click',()=>{
+  if(layers.length){layers.length=0;updLoopCnt();toast('Все лупы удалены');}
+});
+function liveQuantize(i){
+  const now=ctx.currentTime-(ctx.baseLatency||0);
+  let s=Math.round((now-cycleStartT)/stepDur())%steps();
+  if(s<0)s+=steps();
+  currentLayer.events.push({pad:i,step:s});
+}
+
 /* ═══════════════ ПАДЫ ═══════════════ */
 const padsEl=$('#pads');
+function setPadName(p,i){
+  const el=p.nameEl;
+  el.textContent='';
+  const n=document.createElement('span');
+  n.className='pnum';n.textContent=i+1;
+  el.appendChild(n);
+  el.appendChild(document.createTextNode(p.name));
+}
 pads.forEach((p,i)=>{
   const el=document.createElement('div');
   el.className='pad';el.style.setProperty('--c',p.color);
   el.innerHTML=
-    '<span class="pidx">'+(i+1)+'</span>'+
+    '<div class="pname"></div>'+
     '<button class="corner edit" aria-label="Пиано-ролл">'+rollSvg+'</button>'+
-    '<div class="pname">'+p.name+'</div>'+
-    '<span class="psrc">СИНТЕЗ</span>'+
     '<button class="corner mute">M</button>'+
+    '<span class="psrc">СИНТЕЗ</span>'+
     '<div class="leds">'+'<i></i>'.repeat(16)+'</div>';
   padsEl.appendChild(el);
   p.el=el;
+  p.nameEl=el.querySelector('.pname');
   p.leds=[...el.querySelectorAll('.leds i')];
+  setPadName(p,i);
   el.addEventListener('pointerdown',e=>{
     if(e.target.closest('.corner'))return;
     e.preventDefault();
     ensureAudio();
-    if(!p.mute&&ctx)triggerPad(i,0,ctx.currentTime,.95);
+    if(!ctx)return;
+    if(!p.mute)triggerPad(i,0,ctx.currentTime,.95);
+    if(recArmed&&playing&&currentLayer)liveQuantize(i);
   });
   el.querySelector('.edit').addEventListener('click',e=>{e.stopPropagation();openRoll(i);});
   el.querySelector('.mute').addEventListener('click',e=>{
@@ -816,7 +934,7 @@ function refreshPackUI(){
     s.textContent=(p.kind==='file'?'📄 ':'∿ ')+p.label;
     $('#slotRst'+i).style.display=p.kind==='file'?'':'none';
     p.el.querySelector('.psrc').textContent=p.kind==='file'?'СЭМПЛ':'СИНТЕЗ';
-    p.el.querySelector('.pname').textContent=p.name;
+    setPadName(p,i);
     slotsEl.children[i].querySelector('b').textContent=p.name;
     if(rollPad===i)updRollHead();
   });
@@ -898,9 +1016,27 @@ $('#synthBtn').addEventListener('click',()=>{
   for(let i=0;i<8;i++)restoreSynth(i);
   toast('Пак сброшен на встроенный синтез');
 });
-$('#packBtn').addEventListener('click',()=>{packEl.classList.add('open');refreshPackUI();});
+$('#packBtn').addEventListener('click',()=>{
+  packEl.classList.add('open');
+  refreshPackUI();
+  updateNetListUI();
+});
 $('#packClose').addEventListener('click',()=>packEl.classList.remove('open'));
 packEl.addEventListener('pointerdown',e=>{if(e.target===packEl)packEl.classList.remove('open');});
+function updateNetListUI(){
+  const el=$('#netList');
+  if(!packTried){el.innerHTML='<div class="net-empty">Читаю pack/…</div>';return;}
+  if(!netInfo.length){
+    el.innerHTML='<div class="net-empty">Ничего не найдено. Положите файлы в папку pack/ '+
+      '(можно подпапки + файл pack.json) рядом с этим html и обновите страницу.</div>';
+    return;
+  }
+  el.innerHTML=netInfo.map(e=>
+    '<div class="net-row'+(e.ok?'':' fail')+'">'+
+      '<span class="nf">pack/'+e.file+'</span>'+
+      '<span class="np">'+(e.ok?('→ PAD '+(e.pad+1)+' · '+pads[e.pad].name):'не найден')+'</span>'+
+    '</div>').join('');
+}
 /* автозагрузка пака с GitHub Pages: pack.json → иначе плоский список */
 async function tryNetPack(){
   if(packTried)return;
@@ -921,6 +1057,7 @@ async function tryNetPack(){
     }
   }catch(e){}
   if(!list||!list.length)list=PACK_FILES.map((f,i)=>({i:i,file:f}));
+  netInfo=list.map(e=>({file:e.file,pad:e.i,ok:false}));
   let ok=0;
   await Promise.all(list.map(async e=>{
     try{
@@ -931,6 +1068,8 @@ async function tryNetPack(){
       p.buffer=buf;p.kind='file';p.label=e.file;
       if(e.name)p.name=String(e.name).toUpperCase();
       if(typeof e.vol==='number')p.vol=clamp(e.vol,0,2);
+      const row=netInfo.find(r=>r.file===e.file);
+      if(row)row.ok=true;
       ok++;
     }catch(err){}
   }));
@@ -938,6 +1077,7 @@ async function tryNetPack(){
     ?('ПАК: ЗАГРУЖЕНО '+ok+'/8'+(manifest?' · pack.json':'')+' · папка pack/')
     :'ПАК НЕ НАЙДЕН — работает встроенный синтез. Положите файлы в pack/ или загрузите кнопками выше.';
   refreshPackUI();
+  updateNetListUI();
   if(ok)toast('Пак ударных: '+ok+' семплов');
 }
 
@@ -947,28 +1087,26 @@ function save(){
   clearTimeout(saveT);
   saveT=setTimeout(()=>{
     try{
-      localStorage.setItem('ritm8',JSON.stringify({bpm:bpm,bars:bars,notes:pads.map(p=>p.notes)}));
+      localStorage.setItem('ritm8v2',JSON.stringify({
+        bpm:bpm,bars:bars,swing:Math.round(swing*100),
+        notes:pads.map(p=>p.notes)
+      }));
     }catch(e){}
   },250);
 }
 function loadSaved(){
   try{
-    const d=JSON.parse(localStorage.getItem('ritm8'));
+    const d=JSON.parse(localStorage.getItem('ritm8v2'));
     if(!d)return;
     if(d.bpm)applyBpm(d.bpm);
     if(d.bars)bars=clamp(d.bars,1,4);
+    if(d.swing)applySwing(clamp(d.swing,0,60));
     if(Array.isArray(d.notes)){
       d.notes.forEach((arr,i)=>{
         if(i<8&&Array.isArray(arr))pads[i].notes=arr.slice(0,MAX_STEPS);
       });
     }
   }catch(e){}
-}
-function seedGroove(){
-  if(pads.some(p=>p.notes.some(n=>n!=null)))return;
-  [[0,[0,4,8,12]],[2,[4,12]],[3,[2,6,10,14]],[4,[14]]].forEach(pair=>{
-    pair[1].forEach(s=>pads[pair[0]].notes[s]=0);
-  });
 }
 
 /* ═══════════════ ГЛАВНЫЙ ЦИКЛ ═══════════════ */
@@ -999,7 +1137,10 @@ document.addEventListener('keydown',e=>{
   if(e.key===' '){e.preventDefault();playing?stopSeq():(ensureAudio(),start());}
   if(e.key==='Escape'){closeRoll();packEl.classList.remove('open');}
   const n=parseInt(e.key,10);
-  if(n>=1&&n<=8&&ctx&&!pads[n-1].mute)triggerPad(n-1,0,ctx.currentTime,.95);
+  if(n>=1&&n<=8&&ctx){
+    if(!pads[n-1].mute)triggerPad(n-1,0,ctx.currentTime,.95);
+    if(recArmed&&playing&&currentLayer)liveQuantize(n-1);
+  }
 });
 let toastT=0;
 function toast(msg){
@@ -1012,15 +1153,15 @@ function toast(msg){
 
 /* ═══════════════ СТАРТ ═══════════════ */
 loadSaved();
-seedGroove();
 paintSeg();
 applyBpm(bpm);
 setFilter(0,true);
 setRollMode('draw');
+updLoopCnt();
 refreshPackUI();
 buildSynthPack();
 requestAnimationFrame(frame);
-setTimeout(()=>toast('РИТМ‑8 готов · жми ▶'),400);
+setTimeout(()=>toast('РИТМ‑8 готов · инструмент пустой · жми ▶ или ● REC'),400);
 </script>
 </body>
 </html>
